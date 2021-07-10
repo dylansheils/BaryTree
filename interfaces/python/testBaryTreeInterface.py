@@ -5,6 +5,7 @@ import sys
 import resource
 import numpy as np
 import mpi4py.MPI as MPI
+import time
 
 
 sys.path.append(os.getcwd())
@@ -16,23 +17,24 @@ except OSError:
     print('Unable to import BaryTreeInterface due to OSError')
 
 
-if __name__=="__main__":
-    
+def runBary(num):
     # set treecode parameters
-    N = 5000
-    maxPerSourceLeaf = 50
-    maxPerTargetLeaf = 10
-    GPUpresent = False
-    theta = 0.8
-    treecodeDegree = 4
-    gaussianAlpha = 1.0
+    N = num
+    critical = 2000
+      
+    maxPerSourceLeaf = critical
+    maxPerTargetLeaf = critical
+    GPUpresent = True
+    theta = 0.7
+    treecodeDegree = 7
+    gaussianAlpha = 0.7
     verbosity = 0
     
     approximation = BT.Approximation.LAGRANGE
     singularity   = BT.Singularity.SUBTRACTION
-    computeType   = BT.ComputeType.PARTICLE_CLUSTER
+    computeType   = BT.ComputeType.CLUSTER_CLUSTER
     
-    kernel = BT.Kernel.YUKAWA
+    kernel = BT.Kernel.COULOMB
     numberOfKernelParameters = 1
     kernelParameters = np.array([0.5])
 
@@ -44,39 +46,25 @@ if __name__=="__main__":
     Y = np.random.rand(N)
     Z = np.random.rand(N)
     W = np.ones(N)   # W stores quadrature weights for convolution integrals.  For particle simulations, set = ones.
-    
-    expectedOutput = 588.7432483318685  # using seed of 1, this is expected value of first element of output array.
-    
+    X2 = np.copy(X)
+    Y2 = np.copy(Y)
+    Z2 = np.copy(Z)
+    RHO2 = np.copy(RHO)
+    W2 = np.copy(W)
 
     # call the treecode
-        
+    start_time = time.time()
     output = BT.callTreedriver(  N, N,
                                  X, Y, Z, RHO,
-                                 np.copy(X), np.copy(Y), np.copy(Z), np.copy(RHO), np.copy(W),
+                                 X2, Y2, Z2, RHO2, W2,
                                  kernel, numberOfKernelParameters, kernelParameters,
                                  singularity, approximation, computeType,
                                  GPUpresent, verbosity, 
                                  theta=theta, degree=treecodeDegree, sourceLeafSize=maxPerSourceLeaf, targetLeafSize=maxPerTargetLeaf, sizeCheck=1.0)
-
-    assert (abs(output[0]-expectedOutput) < 1e-14), "Error: didn't get the expected output using explicit theta/degree."
+    print('-'*10 + ' bodies:{} '.format(num) + '-'*10)  # print divider between iterations
+    print("--- time:%s ---" % (time.time() - start_time))
     
-    
-    
-    
-    
-    
-    beta = 0.1
-    expectedOutput = 588.7445889051367  # this is expected value of first element of output array for beta = 0.1
-    output = BT.callTreedriver(  N, N,
-                                 X, Y, Z, RHO,
-                                 np.copy(X), np.copy(Y), np.copy(Z), np.copy(RHO), np.copy(W),
-                                 kernel, numberOfKernelParameters, kernelParameters,
-                                 singularity, approximation, computeType,
-                                 GPUpresent, verbosity, beta=beta,  sizeCheck=1.0)
-    assert (abs(output[0]-expectedOutput) < 1e-14), "Error: didn't get the expected output using beta."
-    
-    
-    print("If no errors printed, then the calls to the treecode wrapper worked (one using explicit theta/degree, one use beta)")
-
-
+for i in range(25):
+    numParticles = int(pow(10,(i+32)/8.0))
+    runBary(numParticles)
 
